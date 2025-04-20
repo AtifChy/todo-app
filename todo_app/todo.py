@@ -10,7 +10,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.shortcuts import print_formatted_text as print_ft
 
-from todo_app.constants import DATA_FILE
+from todo_app.constants import DATA_FILE, HISTORY_FILE
 from todo_app.enums import Priority
 from todo_app.task import Task
 from todo_app.helpers import format_due_date_display, get_datetime_from_iso, parse_datetime_flexible
@@ -287,7 +287,7 @@ class TodoApp:
 def print_help():
     """Prints the help menu with colors and formatting."""
     print_ft(
-        HTML('\n<u><b><ansiyellow>--- To-Do App Commands ---</ansiyellow></b></u>'))
+        HTML('<u><b><ansiyellow>--- To-Do App Commands ---</ansiyellow></b></u>'))
     print_ft(HTML('  <ansicyan>add</ansicyan> '
                   '<b><i>&lt;description&gt;</i></b> '
                   '[<ansiyellow>priority=&lt;prio&gt;</ansiyellow>] '
@@ -390,11 +390,13 @@ def parse_args(input_str):
 
 def main():
     app = TodoApp()
-    history = FileHistory(os.path.expanduser('~/.todo_app_history'))
+    history = FileHistory(os.path.expanduser(HISTORY_FILE))
     session = PromptSession(history=history)
     todo_completer = TodoCompleter(app)
 
-    print("Welcome to To-Do App!")
+    print(app.data_file)
+
+    print("Welcome to To-Do App!\n")
     print_help()
 
     while True:

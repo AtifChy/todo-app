@@ -1,4 +1,6 @@
-DATA_FILE = "todo_tasks.json"
+DATA_FILE = "~/todo_tasks.json"
+HISTORY_FILE = "~/.todo_app_history"
+
 DATETIME_FORMAT = "%Y-%m-%d %I:%M%p"
 DATE_FORMAT = "%Y-%m-%d"
 
