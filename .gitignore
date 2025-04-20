@@ -1,4 +1,5 @@
 __pycache__/
 *.py[cod]
 .env
-data.json
+build/
+*.egg-info/
