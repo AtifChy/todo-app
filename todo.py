@@ -19,7 +19,7 @@ from todo_completer import TodoCompleter
 
 class TodoApp:
     def __init__(self, data_file=DATA_FILE):
-        self.data_file = data_file
+        self.data_file = os.path.expanduser(data_file)
         self.tasks = self._load_tasks()
 
     def _load_tasks(self):
