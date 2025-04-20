@@ -10,11 +10,11 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.shortcuts import print_formatted_text as print_ft
 
-from constants import DATA_FILE
-from enums import Priority
-from task import Task
-from helpers import format_due_date_display, get_datetime_from_iso, parse_datetime_flexible
-from todo_completer import TodoCompleter
+from todo_app.constants import DATA_FILE
+from todo_app.enums import Priority
+from todo_app.task import Task
+from todo_app.helpers import format_due_date_display, get_datetime_from_iso, parse_datetime_flexible
+from todo_app.todo_completer import TodoCompleter
 
 
 class TodoApp:

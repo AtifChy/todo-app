@@ -3,8 +3,8 @@ import shlex
 
 from prompt_toolkit.completion import Completer, Completion
 
-from constants import COMMANDS, DATE_FORMAT, DATETIME_FORMAT, EDIT_ADD_KEYWORDS, LIST_FILTERS, LIST_SORTS
-from enums import PRIORITY_VALUES
+from todo_app.constants import COMMANDS, DATE_FORMAT, DATETIME_FORMAT, EDIT_ADD_KEYWORDS, LIST_FILTERS, LIST_SORTS
+from todo_app.enums import PRIORITY_VALUES
 
 # --- Completer Class ---
 

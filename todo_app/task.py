@@ -1,7 +1,7 @@
 import datetime
 import uuid
 
-from enums import Priority
+from todo_app.enums import Priority
 
 
 class Task:
