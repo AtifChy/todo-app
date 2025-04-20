@@ -42,7 +42,7 @@ class TodoApp:
         except IOError as e:
             print(f"Error saving tasks: {e}")
 
-    def _find_task_by_id_or_index(self, identifier):
+    def _find_task_by_id(self, identifier):
         """Finds a task by its unique ID (prioritized) or index (less reliable)."""
         # Try finding by full ID
         for task in self.tasks:
@@ -61,7 +61,6 @@ class TodoApp:
                 print(f"  - {t.id[:8]}... ({t.description})")
             return None  # Indicate ambiguity
 
-        # Avoid index-based lookup as it's unreliable without stable list view
         print(f"Error: Task with identifier '{identifier}' not found.")
         return None
 
@@ -199,7 +198,7 @@ class TodoApp:
         print_ft(header)
         print_ft(HTML(f"<ansigray>{'-'*80}</ansigray>"))
 
-        for i, task in enumerate(sorted_tasks):
+        for task in sorted_tasks:
             status = "[X]" if task.completed else "[ ]"
             # Format and color each field
             short_id = task.id[:8]
@@ -221,7 +220,7 @@ class TodoApp:
 
     def toggle_complete(self, identifier):
         """Marks a task as complete or incomplete."""
-        task = self._find_task_by_id_or_index(identifier)
+        task = self._find_task_by_id(identifier)
         if task:
             task.completed = not task.completed
             self._save_tasks()
@@ -230,7 +229,7 @@ class TodoApp:
 
     def delete_task(self, identifier):
         """Deletes a task."""
-        task_to_delete = self._find_task_by_id_or_index(identifier)
+        task_to_delete = self._find_task_by_id(identifier)
         if task_to_delete:
             desc = task_to_delete.description
             confirm = input(
@@ -244,7 +243,7 @@ class TodoApp:
 
     def edit_task(self, identifier, new_description=None, new_priority=None, new_due_date=None):
         """Edits properties of an existing task. Parses date/time."""
-        task = self._find_task_by_id_or_index(identifier)
+        task = self._find_task_by_id(identifier)
         if task:
             updated = False
             if new_description is not None:
@@ -288,6 +287,7 @@ def print_help():
     """Prints the help menu with colors and formatting."""
     print_ft(
         HTML('<u><b><ansiyellow>--- To-Do App Commands ---</ansiyellow></b></u>'))
+    # -- add --
     print_ft(HTML('  <ansicyan>add</ansicyan> '
                   '<b><i>&lt;description&gt;</i></b> '
                   '[<ansiyellow>priority=&lt;prio&gt;</ansiyellow>] '
@@ -297,26 +297,43 @@ def print_help():
         '      <ansigreen>Priorities:</ansigreen> high, medium, low, none (default)'))
     print_ft(HTML('      <ansigreen>Due Format:</ansigreen> '
                   '\'YYYY-MM-DD\' or \'YYYY-MM-DD HH:MM AM/PM\''))
+    print_ft(HTML(
+        '      <u>Example</u>: add "Meeting Prep" priority=high due="2024-05-20 09:00AM"'))
+    # -- list --
     print_ft(HTML('  <ansicyan>list</ansicyan> [<b>filter</b>] [<ansiyellow>sort=&lt;key&gt;</ansiyellow>] '
                   '- List tasks'))
     print_ft(HTML('      <ansigreen>Filters:</ansigreen> all (default), pending, completed, '
                   'priority:&lt;prio&gt;, due_today, overdue'))
     print_ft(HTML(
         '      <ansigreen>Sort Keys:</ansigreen> priority (default), due_date, description'))
+    print_ft(HTML('      <u>Example</u>: list pending sort=due_date'))
+    # -- done --
     print_ft(HTML(
         '  <ansicyan>done</ansicyan> <b><i>&lt;task_id&gt;</i></b> - Mark task as completed'))
     print_ft(HTML(
+        '      <u>Example</u>: done 12345678'))
+    # -- undone --
+    print_ft(HTML(
         '  <ansicyan>undone</ansicyan> <b><i>&lt;task_id&gt;</i></b> - Mark task as pending'))
+    # -- toggle --
     print_ft(HTML(
         '  <ansicyan>toggle</ansicyan> <b><i>&lt;task_id&gt;</i></b> - Toggle task status'))
+    # -- edit --
     print_ft(HTML('  <ansicyan>edit</ansicyan> <b><i>&lt;task_id&gt;</i></b> '
                   '[<ansiyellow>desc="&lt;new_desc&gt;"</ansiyellow>] '
                   '[<ansiyellow>priority=&lt;prio&gt;</ansiyellow>] '
                   '[<ansiyellow>due=&lt;date|datetime|none&gt;</ansiyellow>] '
                   '- Edit task'))
     print_ft(
+        HTML('      <u>Example</u>: edit 12345678 priority=medium due="2024-06-01"'))
+    # -- delete --
+    print_ft(
         HTML('  <ansicyan>del</ansicyan> <b><i>&lt;task_id&gt;</i></b> - Delete a task'))
+    # -- help --
     print_ft(HTML('  <ansicyan>help</ansicyan> - Show this help message'))
+    # -- clear --
+    print_ft(HTML('  <ansicyan>clear</ansicyan> - Clear the screen'))
+    # -- exit --
     print_ft(HTML('  <ansicyan>exit</ansicyan> - Exit the application'))
     print_ft(
         HTML('<ansiblue>----------------------------------------------</ansiblue>\n'))
@@ -446,7 +463,7 @@ def main():
                 identifier = params[0]
 
                 # Pre-find task for commands that benefit from knowing if it exists first
-                task_exists = app._find_task_by_id_or_index(identifier) if command in [
+                task_exists = app._find_task_by_id(identifier) if command in [
                     "done", "undone"] else True  # Assume exists for others initially
 
                 if not task_exists and command in ["done", "undone"]:
@@ -454,7 +471,7 @@ def main():
                     continue
 
                 if command == "done":
-                    task = app._find_task_by_id_or_index(
+                    task = app._find_task_by_id(
                         identifier)  # Find again for status check
                     if task and not task.completed:
                         app.toggle_complete(identifier)
@@ -462,7 +479,7 @@ def main():
                         print(
                             f"Task '{task.description}' is already marked as done.")
                 elif command == "undone":
-                    task = app._find_task_by_id_or_index(identifier)
+                    task = app._find_task_by_id(identifier)
                     if task and task.completed:
                         app.toggle_complete(identifier)
                     elif task:
