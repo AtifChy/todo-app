@@ -51,7 +51,7 @@ class TodoCompleter(Completer):
                         fid for fid in self.full_task_ids if fid.startswith(task_id_prefix)]
                     meta_desc = "Task ID"
                     if len(full_id_match) == 1:
-                        task = self.app._find_task_by_id_or_index(
+                        task = self.app._find_task_by_id(
                             full_id_match[0])  # Use find method
                         if task:
                             meta_desc = task.description[:40] + \
