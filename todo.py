@@ -388,7 +388,7 @@ def parse_args(input_str):
     return args
 
 
-if __name__ == "__main__":
+def main():
     app = TodoApp()
     history = FileHistory(os.path.expanduser('~/.todo_app_history'))
     session = PromptSession(history=history)
@@ -502,3 +502,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"\nAn unexpected error occurred: {e}")
             traceback.print_exc()  # Print detail for debugging
+
+
+if __name__ == "__main__":
+    main()
