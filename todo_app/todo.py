@@ -43,7 +43,7 @@ class TodoApp:
             print(f"Error saving tasks: {e}")
 
     def _find_task_by_id(self, identifier):
-        """Finds a task by its unique ID (prioritized) or index (less reliable)."""
+        """Finds a task by its unique ID."""
         # Try finding by full ID
         for task in self.tasks:
             if task.id == identifier:
@@ -95,7 +95,7 @@ class TodoApp:
         self._save_tasks()
         print(f"Task added: '{description}' (ID: {task.id[:8]}...)")
 
-    def list_tasks(self, filter_by="all", sort_by="priority"):
+    def list_tasks(self, filter_by="all", sort_by="priority", reverse=False):
         """Lists tasks, with optional filtering and sorting."""
         filtered_tasks = self.tasks
         now = datetime.datetime.now()  # Get current time for filtering
@@ -113,7 +113,7 @@ class TodoApp:
             priority_enum = Priority.from_string(priority_str)
             if str(priority_enum) == priority_str:
                 filtered_tasks = [
-                    t for t in self.tasks if t.priority == priority_str]
+                    t for t in self.tasks if t.priority == priority_enum]
             else:
                 print(f"Invalid priority filter: {priority_str}. Showing all.")
                 original_filter = "all"
@@ -180,6 +180,9 @@ class TodoApp:
         if not sorted_tasks:
             print("No tasks to show for the current filter.")
             return
+
+        if reverse:
+            sorted_tasks.reverse()
 
         # Colorized header block
         print_ft(HTML('\n<u><b><ansiyellow>--- Your Tasks ---</ansiyellow></b></u>'))
@@ -384,10 +387,8 @@ def parse_args(input_str):
 
         # Not ID, not kwarg, not description mode -> treat as positional param (e.g., list filter)
         else:
-            # Only capture first positional for list filter
-            if args['command'] == 'list' and not args['params']:
+            if args['command'] == 'list' and part.lower() == 'reverse' or not args['params']:
                 args['params'].append(part)
-            # Ignore extra positional args for most commands
             elif args['command'] not in ['add', 'edit']:
                 print(
                     f"Warning: Ignoring extra argument '{part}' for {args['command']} command.")
@@ -451,9 +452,13 @@ def main():
                 app.add_task(description, priority, due_date)
                 todo_completer.update_task_ids()
             elif command == "list":
+                reverse = "reverse" in params
+                if reverse:
+                    params.remove("reverse")
                 filter_by = params[0] if params else "all"
                 sort_by = kwargs.get('sort', 'priority')
-                app.list_tasks(filter_by=filter_by, sort_by=sort_by)
+                app.list_tasks(filter_by=filter_by,
+                               sort_by=sort_by, reverse=reverse)
             elif command in ("done", "undone", "toggle", "del", "edit"):
                 if not params:
                     print(
@@ -471,8 +476,8 @@ def main():
                     continue
 
                 if command == "done":
-                    task = app._find_task_by_id(
-                        identifier)  # Find again for status check
+                    # Find again for status check
+                    task = app._find_task_by_id(identifier)
                     if task and not task.completed:
                         app.toggle_complete(identifier)
                     elif task:

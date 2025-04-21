@@ -62,9 +62,14 @@ class TodoCompleter(Completer):
         # 3. Complete Arguments for 'list'
         if command == 'list':
             has_sort_keyword = any(w.startswith("sort=") for w in words[:-1])
-            has_filter_keyword = any(
-                # Basic check
-                f in words[1:-1] for f in LIST_FILTERS if f != 'all')
+            has_filter_keyword = any(f in words[1:-1]
+                                     for f in LIST_FILTERS if f != 'all')
+            has_reverse_keyword = any(
+                w.lower() == "reverse" for w in words[:-1])
+
+            # Suggest reverse keyword
+            if not has_reverse_keyword and text_before_cursor.endswith(' '):
+                yield Completion("reverse", start_position=-len(current_word), display_meta='Order')
 
             # Suggest filters or 'sort=' keyword
             if word_count == 2:
@@ -74,19 +79,21 @@ class TodoCompleter(Completer):
                         if key.startswith(typed):
                             yield Completion(key, start_position=0, display_meta='Sort Key')
                 else:
+                    # Suggest filter names if not used
                     if not has_sort_keyword:
                         for filt in LIST_FILTERS:
                             if filt.startswith(current_word):
                                 yield Completion(filt, start_position=-len(current_word), display_meta='Filter')
+                    # Suggest sort= keyword
                     if not has_sort_keyword and "sort=".startswith(current_word):
                         yield Completion("sort=", start_position=-len(current_word), display_meta='Sort key')
 
             # Suggest sort key values
-            # elif word_count >= 2 and words[-1].startswith("sort="):
-            #     typed = current_word[len("sort="):]
-            #     for key in LIST_SORTS:
-            #         if key.startswith(typed):
-            #             yield Completion(f"sort={key}", start_position=-len(current_word), display_meta='Sort Key')
+            elif word_count >= 2 and words[-1].startswith("sort="):
+                typed = current_word[len("sort="):]
+                for key in LIST_SORTS:
+                    if key.startswith(typed):
+                        yield Completion(key, start_position=0, display_meta='Sort Key')
 
             # Suggest 'sort=' keyword after a filter
             elif word_count == 3 and text_before_cursor.endswith(' ') and not has_sort_keyword:
