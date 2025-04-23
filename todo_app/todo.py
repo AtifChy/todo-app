@@ -2,7 +2,6 @@ import json
 import os
 import datetime
 import uuid
-import shlex
 import traceback
 
 from prompt_toolkit import PromptSession
@@ -10,7 +9,8 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.shortcuts import print_formatted_text as print_ft
 
-from todo_app.constants import DATA_FILE, HISTORY_FILE
+from todo_app.cli import build_parser, parse_input
+from todo_app.constants import ALIAS_COMMANDS, DATA_FILE, HISTORY_FILE
 from todo_app.enums import Priority
 from todo_app.task import Task
 from todo_app.helpers import format_due_date_display, get_datetime_from_iso, parse_datetime_flexible
@@ -95,50 +95,52 @@ class TodoApp:
         self._save_tasks()
         print(f"Task added: '{description}' (ID: {task.id[:8]}...)")
 
-    def list_tasks(self, filter_by="all", sort_by="priority", reverse=False):
+    def list_tasks(self, filter_by=None, sort_by="priority", reverse=False):
         """Lists tasks, with optional filtering and sorting."""
-        filtered_tasks = self.tasks
-        now = datetime.datetime.now()  # Get current time for filtering
+        filters = filter_by or ['all']
+        filtered_tasks = list(self.tasks)   # work on a copy
 
-        # --- Filtering ---
-        original_filter = filter_by
-        filter_by = filter_by.lower()
-
-        if filter_by == "pending":
-            filtered_tasks = [t for t in self.tasks if not t.completed]
-        elif filter_by == "completed":
-            filtered_tasks = [t for t in self.tasks if t.completed]
-        elif filter_by.startswith("priority:"):
-            priority_str = filter_by.split(":", 1)[1].lower()
-            priority_enum = Priority.from_string(priority_str)
-            if str(priority_enum) == priority_str:
+        now = datetime.datetime.now()
+        original_filters = filters[:]
+        for f in filters:
+            key = f.lower()
+            if key == "all":
+                continue
+            if key == "pending":
+                filtered_tasks = [t for t in filtered_tasks if not t.completed]
+            elif key == "completed":
+                filtered_tasks = [t for t in filtered_tasks if t.completed]
+            elif key.startswith("priority:"):
+                priority_str = key.split(":", 1)[1].lower()
+                priority_enum = Priority.from_string(priority_str)
+                if str(priority_enum) == priority_str:
+                    filtered_tasks = [
+                        t for t in filtered_tasks if t.priority == priority_enum]
+                else:
+                    print(
+                        f"Invalid priority filter: {priority_str}. Showing all.")
+                    original_filters = ["all"]
+                    filtered_tasks = list(self.tasks)
+            elif key == "due_today":
+                today = now.date()
                 filtered_tasks = [
-                    t for t in self.tasks if t.priority == priority_enum]
+                    t for t in filtered_tasks
+                    if not t.completed and
+                    t.due_date and
+                    get_datetime_from_iso(
+                        t.due_date).date() == today  # Compare dates
+                ]
+            elif key == "overdue":
+                filtered_tasks = [
+                    t for t in filtered_tasks
+                    if not t.completed and
+                    t.due_date and
+                    # Compare full datetime
+                    get_datetime_from_iso(t.due_date) < now
+                ]
             else:
-                print(f"Invalid priority filter: {priority_str}. Showing all.")
-                original_filter = "all"
-                filtered_tasks = self.tasks
-        elif filter_by == "due_today":
-            today = now.date()
-            filtered_tasks = [
-                t for t in self.tasks
-                if not t.completed and
-                t.due_date and
-                get_datetime_from_iso(
-                    t.due_date).date() == today  # Compare dates
-            ]
-        elif filter_by == "overdue":
-            filtered_tasks = [
-                t for t in self.tasks
-                if not t.completed and
-                t.due_date and
-                # Compare full datetime
-                get_datetime_from_iso(t.due_date) < now
-            ]
-        elif filter_by != "all":
-            print(f"Invalid filter: {original_filter}. Showing all tasks.")
-            original_filter = "all"
-            filtered_tasks = self.tasks
+                # unknown filter: warn once, but keep going
+                print(f"Invalid filter: {f}. Ignored.")
 
         # --- Sorting ---
         sort_by = sort_by.lower()
@@ -184,10 +186,12 @@ class TodoApp:
         if reverse:
             sorted_tasks.reverse()
 
+        filters_str = ', '.join(original_filters)
+
         # Colorized header block
         print_ft(HTML('\n<u><b><ansiyellow>--- Your Tasks ---</ansiyellow></b></u>'))
         print_ft(HTML(
-            f"<ansicyan>Filter:</ansicyan> {original_filter} <ansigray>|</ansigray> <ansicyan>Sort:</ansicyan> {sort_by}"))
+            f"<ansicyan>Filter:</ansicyan> {filters_str} <ansigray>|</ansigray> <ansicyan>Sort:</ansicyan> {sort_by}"))
         print_ft(HTML(f"<ansigray>{'-'*80}</ansigray>"))
         header = HTML(
             '<b>'
@@ -286,141 +290,20 @@ class TodoApp:
                 print("No valid changes specified for the task.")
 
 
-def print_help():
-    """Prints the help menu with colors and formatting."""
-    print_ft(
-        HTML('<u><b><ansiyellow>--- To-Do App Commands ---</ansiyellow></b></u>'))
-    # -- add --
-    print_ft(HTML('  <ansicyan>add</ansicyan> '
-                  '<b><i>&lt;description&gt;</i></b> '
-                  '[<ansiyellow>priority=&lt;prio&gt;</ansiyellow>] '
-                  '[<ansiyellow>due=&lt;date|datetime&gt;</ansiyellow>] '
-                  '- Add a new task'))
-    print_ft(HTML(
-        '      <ansigreen>Priorities:</ansigreen> high, medium, low, none (default)'))
-    print_ft(HTML('      <ansigreen>Due Format:</ansigreen> '
-                  '\'YYYY-MM-DD\' or \'YYYY-MM-DD HH:MM AM/PM\''))
-    print_ft(HTML(
-        '      <u>Example</u>: add "Meeting Prep" priority=high due="2024-05-20 09:00AM"'))
-    # -- list --
-    print_ft(HTML('  <ansicyan>list</ansicyan> [<b>filter</b>] [<ansiyellow>sort=&lt;key&gt;</ansiyellow>] '
-                  '- List tasks'))
-    print_ft(HTML('      <ansigreen>Filters:</ansigreen> all (default), pending, completed, '
-                  'priority:&lt;prio&gt;, due_today, overdue'))
-    print_ft(HTML(
-        '      <ansigreen>Sort Keys:</ansigreen> priority (default), due_date, description'))
-    print_ft(HTML('      <u>Example</u>: list pending sort=due_date'))
-    # -- done --
-    print_ft(HTML(
-        '  <ansicyan>done</ansicyan> <b><i>&lt;task_id&gt;</i></b> - Mark task as completed'))
-    print_ft(HTML(
-        '      <u>Example</u>: done 12345678'))
-    # -- undone --
-    print_ft(HTML(
-        '  <ansicyan>undone</ansicyan> <b><i>&lt;task_id&gt;</i></b> - Mark task as pending'))
-    # -- toggle --
-    print_ft(HTML(
-        '  <ansicyan>toggle</ansicyan> <b><i>&lt;task_id&gt;</i></b> - Toggle task status'))
-    # -- edit --
-    print_ft(HTML('  <ansicyan>edit</ansicyan> <b><i>&lt;task_id&gt;</i></b> '
-                  '[<ansiyellow>desc="&lt;new_desc&gt;"</ansiyellow>] '
-                  '[<ansiyellow>priority=&lt;prio&gt;</ansiyellow>] '
-                  '[<ansiyellow>due=&lt;date|datetime|none&gt;</ansiyellow>] '
-                  '- Edit task'))
-    print_ft(
-        HTML('      <u>Example</u>: edit 12345678 priority=medium due="2024-06-01"'))
-    # -- delete --
-    print_ft(
-        HTML('  <ansicyan>del</ansicyan> <b><i>&lt;task_id&gt;</i></b> - Delete a task'))
-    # -- help --
-    print_ft(HTML('  <ansicyan>help</ansicyan> - Show this help message'))
-    # -- clear --
-    print_ft(HTML('  <ansicyan>clear</ansicyan> - Clear the screen'))
-    # -- exit --
-    print_ft(HTML('  <ansicyan>exit</ansicyan> - Exit the application'))
-    print_ft(
-        HTML('<ansiblue>----------------------------------------------</ansiblue>\n'))
-    print_ft(HTML(
-        '<i>Hint:</i> Use <b><ansiblue>TAB</ansiblue></b> to autocomplete commands and arguments.'))
-
-
-def parse_args(input_str):
-    """Parses arguments using shlex for better quote handling."""
-    try:
-        # Use posix=False on Windows if paths with backslashes are arguments,
-        # otherwise default (True) is usually fine. Keep default for now.
-        parts = shlex.split(input_str)
-    except ValueError as e:
-        print(f"Warning: Input parsing issue (maybe unmatched quotes?): {e}")
-        parts = input_str.split()  # Fallback
-
-    args = {'command': None, 'params': [], 'kwargs': {}}
-    if not parts:
-        return args
-
-    args['command'] = parts[0].lower()
-    description_parts = []
-    # Assume first non-kwarg part starts description *unless* it's an ID command
-    is_description_mode = args['command'] in ['add']
-
-    id_expected = args['command'] in [
-        'edit', 'del', 'done', 'undone', 'toggle']
-    id_captured = False
-
-    for part in parts[1:]:
-        is_kwarg = '=' in part and part.index(
-            '=') > 0  # Basic check for key=value
-
-        if is_kwarg:
-            key, value = part.split('=', 1)
-            args['kwargs'][key.lower()] = value  # Store kwarg
-            is_description_mode = False  # Stop description mode if kwarg found
-
-        elif id_expected and not id_captured:
-            args['params'].append(part)  # Capture the ID
-            id_captured = True
-            if args['command'] == 'edit':  # For edit, things after ID could be description
-                is_description_mode = True  # Re-enable description for edit *after* ID
-
-        elif is_description_mode:
-            description_parts.append(part)  # Collect description parts
-
-        # Not ID, not kwarg, not description mode -> treat as positional param (e.g., list filter)
-        else:
-            if args['command'] == 'list' and part.lower() == 'reverse' or not args['params']:
-                args['params'].append(part)
-            elif args['command'] not in ['add', 'edit']:
-                print(
-                    f"Warning: Ignoring extra argument '{part}' for {args['command']} command.")
-
-    # Consolidate description if parts were collected and 'desc=' wasn't used
-    if description_parts:
-        if 'desc' not in args['kwargs']:
-            args['kwargs']['desc'] = " ".join(description_parts)
-        else:
-            # If both positional desc and desc= provided, kwarg takes precedence
-            print(
-                "Warning: Both positional description and desc= provided. Using desc= value.")
-            # The positional parts were already ignored due to is_description_mode=False
-
-    return args
-
-
 def main():
     app = TodoApp()
+    parser = build_parser()
     history = FileHistory(os.path.expanduser(HISTORY_FILE))
     session = PromptSession(history=history)
     todo_completer = TodoCompleter(app)
 
-    print(app.data_file)
-
     print("Welcome to To-Do App!\n")
-    print_help()
+    print(parser.format_help())
 
     while True:
         try:
             raw_input = session.prompt(
-                HTML("<b>Todo&gt;</b> "),
+                HTML('<b>Todo></b> '),
                 completer=todo_completer,
                 complete_while_typing=True,
                 refresh_interval=0.5
@@ -429,93 +312,55 @@ def main():
             if not raw_input:
                 continue
 
-            parsed = parse_args(raw_input)
-            command = parsed['command']
-            params = parsed['params']
-            kwargs = parsed['kwargs']
+            parsed_args = parse_input(parser, raw_input)
+            if parsed_args is None:
+                continue
+
+            command = parsed_args.command
+            command = ALIAS_COMMANDS.get(command, command)
 
             if command == "exit":
                 print("Exiting. Goodbye!")
                 break
             elif command == "help":
-                print_help()
+                print(parser.format_help())
             elif command == "clear":
                 os.system('cls' if os.name == 'nt' else 'clear')
             elif command == "add":
-                description = kwargs.get('desc')
-                if not description:
-                    print("Error: Description is required for adding a task.")
-                    print_help()
-                    continue
-                priority = kwargs.get('priority', 'none')
-                due_date = kwargs.get('due')  # String from input
-                app.add_task(description, priority, due_date)
+                app.add_task(
+                    parsed_args.description,
+                    parsed_args.priority,
+                    parsed_args.due
+                )
                 todo_completer.update_task_ids()
             elif command == "list":
-                reverse = "reverse" in params
-                if reverse:
-                    params.remove("reverse")
-                filter_by = params[0] if params else "all"
-                sort_by = kwargs.get('sort', 'priority')
-                app.list_tasks(filter_by=filter_by,
-                               sort_by=sort_by, reverse=reverse)
-            elif command in ("done", "undone", "toggle", "del", "edit"):
-                if not params:
-                    print(
-                        f"Error: Task ID is required for command '{command}'.")
-                    print_help()
+                app.list_tasks(
+                    filter_by=parsed_args.filters,
+                    sort_by=parsed_args.sort,
+                    reverse=parsed_args.reverse
+                )
+            elif command == "toggle":
+                ident = parsed_args.id
+                app.toggle_complete(ident)
+            elif command == "del":
+                before = len(app.tasks)
+                app.delete_task(parsed_args.id)
+                if len(app.tasks) < before:
+                    todo_completer.update_task_ids()
+            elif command == "edit":
+                if not any((parsed_args.desc, parsed_args.priority, parsed_args.due)):
+                    print("Error: Edit requires --desc, --priority or --due.")
+                    print(parser.format_help())
                     continue
-                identifier = params[0]
-
-                # Pre-find task for commands that benefit from knowing if it exists first
-                task_exists = app._find_task_by_id(identifier) if command in [
-                    "done", "undone"] else True  # Assume exists for others initially
-
-                if not task_exists and command in ["done", "undone"]:
-                    # _find already prints error, just continue
-                    continue
-
-                if command == "done":
-                    # Find again for status check
-                    task = app._find_task_by_id(identifier)
-                    if task and not task.completed:
-                        app.toggle_complete(identifier)
-                    elif task:
-                        print(
-                            f"Task '{task.description}' is already marked as done.")
-                elif command == "undone":
-                    task = app._find_task_by_id(identifier)
-                    if task and task.completed:
-                        app.toggle_complete(identifier)
-                    elif task:
-                        print(
-                            f"Task '{task.description}' is already marked as pending.")
-                elif command == "toggle":
-                    # Let toggle handle find/error
-                    app.toggle_complete(identifier)
-                elif command == "del":
-                    # delete_task handles find/error/confirmation internally
-                    original_tasks_count = len(app.tasks)
-                    app.delete_task(identifier)
-                    # Check if deletion likely succeeded
-                    if len(app.tasks) < original_tasks_count:
-                        todo_completer.update_task_ids()
-                elif command == "edit":
-                    new_desc = kwargs.get('desc')
-                    new_prio = kwargs.get('priority')
-                    new_due = kwargs.get('due')  # String from input or None
-                    if new_desc is None and new_prio is None and new_due is None:
-                        print(
-                            "Error: Edit command requires at least one property to change (desc=, priority=, due=).")
-                        print_help()
-                        continue
-                    # edit_task handles find/error internally
-                    app.edit_task(identifier, new_description=new_desc,
-                                  new_priority=new_prio, new_due_date=new_due)
-
+                app.edit_task(
+                    parsed_args.id,
+                    new_description=parsed_args.desc,
+                    new_priority=parsed_args.priority,
+                    new_due_date=parsed_args.due
+                )
             else:
                 print(f"Error: Unknown command '{command}'")
-                print_help()
+                print(parser.format_help())
 
         except KeyboardInterrupt:
             print("\nExiting due to interrupt.")

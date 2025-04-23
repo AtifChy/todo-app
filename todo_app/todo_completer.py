@@ -3,7 +3,7 @@ import shlex
 
 from prompt_toolkit.completion import Completer, Completion
 
-from todo_app.constants import COMMANDS, DATE_FORMAT, DATETIME_FORMAT, EDIT_ADD_KEYWORDS, LIST_FILTERS, LIST_SORTS
+from todo_app.constants import ALIAS_COMMANDS, COMMANDS, DATE_FORMAT, DATETIME_FORMAT, LIST_FILTERS, LIST_SORTS
 from todo_app.enums import PRIORITY_VALUES
 
 # --- Completer Class ---
@@ -20,7 +20,7 @@ class TodoCompleter(Completer):
         self.full_task_ids = {task.id for task in self.app.tasks}
 
     def get_completions(self, document, complete_event):
-        self.update_task_ids()  # Ensure task IDs are fresh
+        self.update_task_ids()
 
         text_before_cursor = document.text_before_cursor
         try:
@@ -34,120 +34,111 @@ class TodoCompleter(Completer):
         current_word = words[-1] if word_count > 0 and not text_before_cursor.endswith(
             ' ') else ""
 
+        # Always offer --help for any command
+        # if current_word.startswith('-'):
+        #     yield Completion("--help", start_position=-len(current_word), display_meta='Help')
+
         # 1. Complete Command Name
         if word_count <= 1 and not text_before_cursor.endswith(' '):
             for cmd in COMMANDS:
                 if cmd.startswith(current_word):
-                    yield Completion(cmd, start_position=-len(current_word))
+                    yield Completion(cmd, start_position=-len(current_word), display_meta='Command')
             return
 
         command = words[0].lower() if word_count > 0 else ""
+        command = ALIAS_COMMANDS.get(command, command)
 
         # 2. Complete Task IDs
         if command in ['done', 'undone', 'toggle', 'del', 'edit'] and word_count == 2 and not text_before_cursor.endswith(' '):
+            if current_word.startswith('-'):
+                yield Completion("--help", start_position=-len(current_word), display_meta='Help')
+                return
+
+            # 2a. complete task ID for done, undone, toggle, del
             for task_id_prefix in self.task_ids:
                 if task_id_prefix.startswith(current_word):
                     full_id_match = [
                         fid for fid in self.full_task_ids if fid.startswith(task_id_prefix)]
                     meta_desc = "Task ID"
                     if len(full_id_match) == 1:
-                        task = self.app._find_task_by_id(
-                            full_id_match[0])  # Use find method
+                        task = self.app._find_task_by_id(full_id_match[0])
                         if task:
-                            meta_desc = task.description[:40] + \
-                                ('...' if len(task.description) > 40 else '')
+                            meta_desc = task.description[:40] + (
+                                '...' if len(task.description) > 40 else '')
                     yield Completion(task_id_prefix, start_position=-len(current_word), display_meta=meta_desc)
             return
 
         # 3. Complete Arguments for 'list'
         if command == 'list':
-            has_sort_keyword = any(w.startswith("sort=") for w in words[:-1])
-            has_filter_keyword = any(f in words[1:-1]
-                                     for f in LIST_FILTERS if f != 'all')
-            has_reverse_keyword = any(
-                w.lower() == "reverse" for w in words[:-1])
+            used = set(words[1:])
+            flags = ['--sort=', '--reverse', '-r', '--help', '-h']
 
-            # Suggest reverse keyword
-            if not has_reverse_keyword and text_before_cursor.endswith(' '):
-                yield Completion("reverse", start_position=-len(current_word), display_meta='Order')
-
-            # Suggest filters or 'sort=' keyword
-            if word_count == 2:
-                if current_word.startswith("sort="):
-                    typed = current_word[len("sort="):]
-                    for key in LIST_SORTS:
-                        if key.startswith(typed):
-                            yield Completion(key, start_position=0, display_meta='Sort Key')
-                else:
-                    # Suggest filter names if not used
-                    if not has_sort_keyword:
-                        for filt in LIST_FILTERS:
-                            if filt.startswith(current_word):
-                                yield Completion(filt, start_position=-len(current_word), display_meta='Filter')
-                    # Suggest sort= keyword
-                    if not has_sort_keyword and "sort=".startswith(current_word):
-                        yield Completion("sort=", start_position=-len(current_word), display_meta='Sort key')
-
-            # Suggest sort key values
-            elif word_count >= 2 and words[-1].startswith("sort="):
-                typed = current_word[len("sort="):]
-                for key in LIST_SORTS:
-                    if key.startswith(typed):
-                        yield Completion(key, start_position=0, display_meta='Sort Key')
-
-            # Suggest 'sort=' keyword after a filter
-            elif word_count == 3 and text_before_cursor.endswith(' ') and not has_sort_keyword:
-                is_filter_likely = words[1] in LIST_FILTERS or words[1].startswith(
-                    "priority:")
-                if is_filter_likely:
-                    yield Completion("sort=", start_position=0, display_meta='Sort key')
-
-            # Suggest filters after 'sort=' keyword
-            elif word_count == 3 and text_before_cursor.endswith(' ') and has_sort_keyword and not has_filter_keyword:
-                for filt in LIST_FILTERS:
-                    yield Completion(filt, start_position=0, display_meta='Filter')
-
+            # 3a. suggest filter values
+            if not current_word.startswith('-'):
+                val = current_word.split('=', 1)[-1]
+                for opt in LIST_FILTERS:
+                    if opt.startswith(val):
+                        yield Completion(opt, start_position=-len(val), display_meta='Filter')
+            # 3b. suggest sort values
+            elif current_word.startswith('--sort='):
+                val = current_word.split('=', 1)[-1]
+                for opt in LIST_SORTS:
+                    if opt.startswith(val):
+                        yield Completion(opt, start_position=-len(val), display_meta='Sort Key')
+            # 3c. flag name completion
+            elif current_word.startswith('--'):
+                for f in flags:
+                    name = f.rstrip('=') if f.endswith('=') else f
+                    if name.startswith(current_word) and name not in used:
+                        yield Completion(name, start_position=-len(current_word), display_meta='Flag')
+            elif current_word.startswith('-'):
+                for f in flags:
+                    if f.startswith('--'):
+                        continue
+                    name = f.rstrip('=') if f.endswith('=') else f
+                    if name.startswith(current_word) and name not in used:
+                        yield Completion(name, start_position=-len(current_word), display_meta='Flag')
             return
 
         # 4. Complete Arguments for 'add' and 'edit'
         if command in ['add', 'edit']:
-            existing_keywords = {word.split('=')[0]
-                                 for word in words[1:] if '=' in word}
+            # after 'edit ' we complete ID, then flags
+            idx = word_count - 1
+            # 4a. complete task ID for edit
+            if command == 'edit' and idx == 1 and not text_before_cursor.endswith(' '):
+                for tid in self.task_ids:
+                    if tid.startswith(current_word):
+                        yield Completion(tid, start_position=-len(current_word), display_meta='ID')
+                return
 
-            # Suggest keywords
-            if text_before_cursor.endswith(' '):
-                for keyword in EDIT_ADD_KEYWORDS:
-                    kw_base = keyword.split('=')[0]
-                    # Avoid suggesting 'desc=' if it's already present for 'edit'/'add' implicitly
-                    if kw_base not in existing_keywords:
-                        yield Completion(keyword, start_position=0, display_meta='Keyword')
+            # 4b. suggest priority values
+            if words[-1].startswith('--priority='):
+                val = current_word.split('=', 1)[-1]
+                for p in PRIORITY_VALUES:
+                    if p.startswith(val):
+                        yield Completion(p, start_position=-len(val), display_meta='Priority')
+                return
 
-            # Suggest keyword values
-            elif '=' in current_word:
-                keyword_part, value_part = current_word.split('=', 1)
-                if keyword_part == 'priority':
-                    for prio in PRIORITY_VALUES:
-                        if prio.startswith(value_part):
-                            yield Completion(prio, start_position=-len(value_part), display_meta='Priority')
-                elif keyword_part == 'due':
-                    if 'none'.startswith(value_part):
-                        yield Completion('none', start_position=-len(value_part), display_meta='Remove due date')
-                    # Add suggestions for today's date and current datetime
-                    today_str = datetime.date.today().strftime(DATE_FORMAT)
-                    quoted_today = f'"{today_str}"'
-                    if today_str.startswith(value_part):
-                        yield Completion(quoted_today, start_position=-len(value_part), display_meta='Today\'s date')
-                    now_str = datetime.datetime.now().strftime(DATETIME_FORMAT)
-                    quoted_now = f'"{now_str}"'
-                    if now_str.startswith(value_part):
-                        yield Completion(quoted_now, start_position=-len(value_part), display_meta='Current datetime')
+            # 4c. suggest due date values
+            if words[-1].startswith('--due='):
+                val = current_word.split('=', 1)[-1]
+                for fmt in [DATE_FORMAT, DATETIME_FORMAT]:
+                    today_str = datetime.datetime.now().strftime(fmt)
+                    quoted = f'"{today_str}"'
+                    yield Completion(quoted, start_position=-len(val), display_meta='Date')
+                return
 
-            # Suggest keywords if typing a word
-            elif not any(current_word.startswith(kw) for kw in existing_keywords):
-                for keyword in EDIT_ADD_KEYWORDS:
-                    kw_base = keyword.split('=')[0]
-                    if kw_base not in existing_keywords and keyword.startswith(current_word):
-                        yield Completion(keyword, start_position=-len(current_word), display_meta='Keyword')
+            # 4d. flags for both add and edit
+            used = {w.split('=')[0] for w in words[1:] if w.startswith('--')}
+            base_defs = ['--priority=', '--due=', '--help']
+            flag_defs = (['--desc='] if command == 'edit' else []) + base_defs
+            if current_word.startswith('-'):
+                for f in flag_defs:
+                    name = f.rstrip('=')
+                    if name.startswith(current_word) and name not in used:
+                        yield Completion(name, start_position=-len(current_word), display_meta='Flag')
+                return
+
             return
 
 # --- Command Line Interface ---
