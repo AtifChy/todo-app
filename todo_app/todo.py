@@ -13,7 +13,11 @@ from prompt_toolkit.shortcuts import print_formatted_text as print_ft
 from todo_app.constants import DATA_FILE, HISTORY_FILE
 from todo_app.enums import Priority
 from todo_app.task import Task
-from todo_app.helpers import format_due_date_display, get_datetime_from_iso, parse_datetime_flexible
+from todo_app.helpers import (
+    format_due_date_display,
+    get_datetime_from_iso,
+    parse_datetime_flexible
+)
 from todo_app.todo_completer import TodoCompleter
 
 
@@ -79,9 +83,11 @@ class TodoApp:
         due_date_iso = None
         if due_date_str and parsed_due_datetime is None:
             print(
-                f"Warning: Invalid date/time format '{due_date_str}'. Use YYYY-MM-DD or YYYY-MM-DD HH:MM. Due date not set.")
+                f"Warning: Invalid date/time format '{due_date_str}'. "
+                "Use YYYY-MM-DD or YYYY-MM-DD HH:MM. Due date not set."
+            )
         elif parsed_due_datetime:
-            due_date_iso = parsed_due_datetime.isoformat()  # Store as ISO string
+            due_date_iso = parsed_due_datetime.isoformat()
 
         task = Task(
             id=str(uuid.uuid4()),
@@ -122,18 +128,11 @@ class TodoApp:
             today = now.date()
             filtered_tasks = [
                 t for t in self.tasks
-                if not t.completed and
-                t.due_date and
-                get_datetime_from_iso(
-                    t.due_date).date() == today  # Compare dates
+                if not t.completed and t.due_date and get_datetime_from_iso(t.due_date).date() == today
             ]
         elif filter_by == "overdue":
             filtered_tasks = [
-                t for t in self.tasks
-                if not t.completed and
-                t.due_date and
-                # Compare full datetime
-                get_datetime_from_iso(t.due_date) < now
+                t for t in self.tasks if not t.completed and t.due_date and get_datetime_from_iso(t.due_date) < now
             ]
         elif filter_by != "all":
             print(f"Invalid filter: {original_filter}. Showing all tasks.")
@@ -142,32 +141,36 @@ class TodoApp:
 
         # --- Sorting ---
         sort_by = sort_by.lower()
-        key_func = None
 
         if sort_by == "priority":
-            def key_func(t): return (
-                -t.priority,
-                get_datetime_from_iso(t.due_date),
-                t.description.lower()
-            )
+            def key_func(t):
+                return (
+                    -t.priority,
+                    get_datetime_from_iso(t.due_date),
+                    t.description.lower()
+                )
         elif sort_by == "due_date":
-            def key_func(t): return (
-                get_datetime_from_iso(t.due_date),
-                -t.priority,
-                t.description.lower()
-            )
+            def key_func(t):
+
+                return (
+                    get_datetime_from_iso(t.due_date),
+                    -t.priority,
+                    t.description.lower()
+                )
         elif sort_by == "description":
-            def key_func(t): return t.description.lower()
+            def key_func(t):
+                return t.description.lower()
         else:
             print(f"Invalid sort key: {sort_by}. Using default (priority).")
             sort_by = "priority"
 
             # Assign default key func again
-            def key_func(t): return (
-                -t.priority,
-                get_datetime_from_iso(t.due_date),
-                t.description.lower()
-            )
+            def key_func(t):
+                return (
+                    -t.priority,
+                    get_datetime_from_iso(t.due_date),
+                    t.description.lower()
+                )
 
         try:
             sorted_tasks = sorted(filtered_tasks, key=key_func)
@@ -185,10 +188,15 @@ class TodoApp:
             sorted_tasks.reverse()
 
         # Colorized header block
-        print_ft(HTML('\n<u><b><ansiyellow>--- Your Tasks ---</ansiyellow></b></u>'))
         print_ft(HTML(
-            f"<ansicyan>Filter:</ansicyan> {original_filter} <ansigray>|</ansigray> <ansicyan>Sort:</ansicyan> {sort_by}"))
-        print_ft(HTML(f"<ansigray>{'-'*80}</ansigray>"))
+            '\n<u><b><ansiyellow>--- Your Tasks ---</ansiyellow></b></u>'
+        ))
+        print_ft(HTML(
+            f"<ansicyan>Filter:</ansicyan> {original_filter} "
+            "<ansigray>|</ansigray> "
+            "<ansicyan>Sort:</ansicyan> {sort_by}"
+        ))
+        print_ft(HTML(f"<ansigray>{'-' * 80}</ansigray>"))
         header = HTML(
             '<b>'
             f'<ansiyellow>{"ID":<10}</ansiyellow>'
@@ -199,7 +207,7 @@ class TodoApp:
             '</b>'
         )
         print_ft(header)
-        print_ft(HTML(f"<ansigray>{'-'*80}</ansigray>"))
+        print_ft(HTML(f"<ansigray>{'-' * 80}</ansigray>"))
 
         for task in sorted_tasks:
             status = "[X]" if task.completed else "[ ]"
@@ -217,7 +225,7 @@ class TodoApp:
             )
             print_ft(row)
 
-        print_ft(HTML(f"<ansigray>{'-'*80}</ansigray>"))
+        print_ft(HTML(f"<ansigray>{'-' * 80}</ansigray>"))
         print_ft(
             HTML(f"<ansiblue>Total tasks shown:</ansiblue> <b>{len(sorted_tasks)}</b>"))
 
@@ -288,23 +296,31 @@ class TodoApp:
 
 def print_help():
     """Prints the help menu with colors and formatting."""
-    print_ft(
-        HTML('<u><b><ansiyellow>--- To-Do App Commands ---</ansiyellow></b></u>'))
+    print_ft(HTML(
+        '<u><b><ansiyellow>--- To-Do App Commands ---</ansiyellow></b></u>'
+    ))
     # -- add --
-    print_ft(HTML('  <ansicyan>add</ansicyan> '
-                  '<b><i>&lt;description&gt;</i></b> '
-                  '[<ansiyellow>priority=&lt;prio&gt;</ansiyellow>] '
-                  '[<ansiyellow>due=&lt;date|datetime&gt;</ansiyellow>] '
-                  '- Add a new task'))
     print_ft(HTML(
-        '      <ansigreen>Priorities:</ansigreen> high, medium, low, none (default)'))
-    print_ft(HTML('      <ansigreen>Due Format:</ansigreen> '
-                  '\'YYYY-MM-DD\' or \'YYYY-MM-DD HH:MM AM/PM\''))
+        '  <ansicyan>add</ansicyan> '
+        '<b><i>&lt;description&gt;</i></b> '
+        '[<ansiyellow>priority=&lt;prio&gt;</ansiyellow>] '
+        '[<ansiyellow>due=&lt;date|datetime&gt;</ansiyellow>] '
+        '- Add a new task'
+    ))
     print_ft(HTML(
-        '      <u>Example</u>: add "Meeting Prep" priority=high due="2024-05-20 09:00AM"'))
+        '      <ansigreen>Priorities:</ansigreen> high, medium, low, none (default)'
+    ))
+    print_ft(HTML(
+        '      <ansigreen>Due Format:</ansigreen> \'YYYY-MM-DD\' or \'YYYY-MM-DD HH:MM AM/PM\''
+    ))
+    print_ft(HTML(
+        '      <u>Example</u>: add "Meeting Prep" priority=high due="2024-05-20 09:00AM"'
+    ))
     # -- list --
-    print_ft(HTML('  <ansicyan>list</ansicyan> [<b>filter</b>] [<ansiyellow>sort=&lt;key&gt;</ansiyellow>] '
-                  '- List tasks'))
+    print_ft(HTML(
+        '  <ansicyan>list</ansicyan> [<b>filter</b>] [<ansiyellow>sort=&lt;key&gt;</ansiyellow>] '
+        '- List tasks'
+    ))
     print_ft(HTML('      <ansigreen>Filters:</ansigreen> all (default), pending, completed, '
                   'priority:&lt;prio&gt;, due_today, overdue'))
     print_ft(HTML(
