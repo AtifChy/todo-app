@@ -5,7 +5,15 @@ from todo_app.enums import Priority
 
 
 class Task:
-    def __init__(self, id, description, completed=False, priority=Priority.NONE, due_date=None, created_at=None):
+    def __init__(
+            self,
+            id,
+            description,
+            completed=False,
+            priority=Priority.NONE,
+            due_date=None,
+            created_at=None
+    ):
         self.id = id
         self.description = description
         self.completed = completed

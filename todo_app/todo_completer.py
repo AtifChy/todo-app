@@ -3,7 +3,14 @@ import shlex
 
 from prompt_toolkit.completion import Completer, Completion
 
-from todo_app.constants import ALIAS_COMMANDS, COMMANDS, DATE_FORMAT, DATETIME_FORMAT, LIST_FILTERS, LIST_SORTS
+from todo_app.constants import (
+    ALIAS_COMMANDS,
+    COMMANDS,
+    DATE_FORMAT,
+    DATETIME_FORMAT,
+    LIST_FILTERS,
+    LIST_SORTS
+)
 from todo_app.enums import PRIORITY_VALUES
 
 # --- Completer Class ---
@@ -49,7 +56,8 @@ class TodoCompleter(Completer):
         command = ALIAS_COMMANDS.get(command, command)
 
         # 2. Complete Task IDs
-        if command in ['done', 'undone', 'toggle', 'del', 'edit'] and word_count == 2 and not text_before_cursor.endswith(' '):
+        if command in ['done', 'undone', 'toggle', 'del', 'edit'] and \
+                word_count == 2 and not text_before_cursor.endswith(' '):
             if current_word.startswith('-'):
                 yield Completion("--help", start_position=-len(current_word), display_meta='Help')
                 return
@@ -65,7 +73,9 @@ class TodoCompleter(Completer):
                         if task:
                             meta_desc = task.description[:40] + (
                                 '...' if len(task.description) > 40 else '')
-                    yield Completion(task_id_prefix, start_position=-len(current_word), display_meta=meta_desc)
+                    yield Completion(
+                        task_id_prefix, start_position=-len(current_word), display_meta=meta_desc
+                    )
             return
 
         # 3. Complete Arguments for 'list'
@@ -90,14 +100,18 @@ class TodoCompleter(Completer):
                 for f in flags:
                     name = f.rstrip('=') if f.endswith('=') else f
                     if name.startswith(current_word) and name not in used:
-                        yield Completion(name, start_position=-len(current_word), display_meta='Flag')
+                        yield Completion(
+                            name, start_position=-len(current_word), display_meta='Flag'
+                        )
             elif current_word.startswith('-'):
                 for f in flags:
                     if f.startswith('--'):
                         continue
                     name = f.rstrip('=') if f.endswith('=') else f
                     if name.startswith(current_word) and name not in used:
-                        yield Completion(name, start_position=-len(current_word), display_meta='Flag')
+                        yield Completion(
+                            name, start_position=-len(current_word), display_meta='Flag'
+                        )
             return
 
         # 4. Complete Arguments for 'add' and 'edit'
@@ -136,7 +150,9 @@ class TodoCompleter(Completer):
                 for f in flag_defs:
                     name = f.rstrip('=')
                     if name.startswith(current_word) and name not in used:
-                        yield Completion(name, start_position=-len(current_word), display_meta='Flag')
+                        yield Completion(
+                            name, start_position=-len(current_word), display_meta='Flag'
+                        )
                 return
 
             return

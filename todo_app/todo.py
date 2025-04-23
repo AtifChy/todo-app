@@ -13,7 +13,11 @@ from todo_app.cli import build_parser, parse_input
 from todo_app.constants import ALIAS_COMMANDS, DATA_FILE, HISTORY_FILE
 from todo_app.enums import Priority
 from todo_app.task import Task
-from todo_app.helpers import format_due_date_display, get_datetime_from_iso, parse_datetime_flexible
+from todo_app.helpers import (
+    format_due_date_display,
+    get_datetime_from_iso,
+    parse_datetime_flexible
+)
 from todo_app.todo_completer import TodoCompleter
 
 
@@ -73,13 +77,16 @@ class TodoApp:
         priority_enum = Priority.from_string(priority)
         if str(priority_enum) != priority.lower() and priority.lower() != "none":
             print(
-                f"Warning: Invalid priority '{priority}'. Setting to 'none'.")
+                f"Warning: Invalid priority '{priority}'. Setting to 'none'."
+            )
 
         parsed_due_datetime = parse_datetime_flexible(due_date_str)
         due_date_iso = None
         if due_date_str and parsed_due_datetime is None:
             print(
-                f"Warning: Invalid date/time format '{due_date_str}'. Use YYYY-MM-DD or YYYY-MM-DD HH:MM. Due date not set.")
+                f"Warning: Invalid date/time format '{due_date_str}'. "
+                "Use YYYY-MM-DD or YYYY-MM-DD HH:MM. Due date not set."
+            )
         elif parsed_due_datetime:
             due_date_iso = parsed_due_datetime.isoformat()  # Store as ISO string
 
@@ -144,7 +151,6 @@ class TodoApp:
 
         # --- Sorting ---
         sort_by = sort_by.lower()
-        key_func = None
 
         if sort_by == "priority":
             def key_func(t): return (
@@ -191,7 +197,10 @@ class TodoApp:
         # Colorized header block
         print_ft(HTML('\n<u><b><ansiyellow>--- Your Tasks ---</ansiyellow></b></u>'))
         print_ft(HTML(
-            f"<ansicyan>Filter:</ansicyan> {filters_str} <ansigray>|</ansigray> <ansicyan>Sort:</ansicyan> {sort_by}"))
+            f"<ansicyan>Filter:</ansicyan> {filters_str} "
+            "<ansigray>|</ansigray> "
+            f"<ansicyan>Sort:</ansicyan> {sort_by}"
+        ))
         print_ft(HTML(f"<ansigray>{'-'*80}</ansigray>"))
         header = HTML(
             '<b>'
@@ -222,8 +231,9 @@ class TodoApp:
             print_ft(row)
 
         print_ft(HTML(f"<ansigray>{'-'*80}</ansigray>"))
-        print_ft(
-            HTML(f"<ansiblue>Total tasks shown:</ansiblue> <b>{len(sorted_tasks)}</b>"))
+        print_ft(HTML(
+            f"<ansiblue>Total tasks shown:</ansiblue> <b>{len(sorted_tasks)}</b>"
+        ))
 
     def toggle_complete(self, identifier):
         """Marks a task as complete or incomplete."""
@@ -240,7 +250,9 @@ class TodoApp:
         if task_to_delete:
             desc = task_to_delete.description
             confirm = input(
-                f"Are you sure you want to delete task '{desc}' (ID: {task_to_delete.id[:8]})? (y/N): ")
+                f"Are you sure you want to delete task '{desc}' "
+                f"(ID: {task_to_delete.id[:8]})? (y/N): "
+            )
             if confirm.lower() == 'y':
                 self.tasks.remove(task_to_delete)
                 self._save_tasks()
@@ -278,11 +290,15 @@ class TodoApp:
                     if parsed_due_datetime:
                         task.due_date = parsed_due_datetime.isoformat()
                         print(
-                            f"Due date updated to '{format_due_date_display(task.due_date)}' for task ID {task.id[:8]}.")
+                            f"Due date updated to '{format_due_date_display(task.due_date)}' "
+                            f"for task ID {task.id[:8]}."
+                        )
                         updated = True
                     else:
                         print(
-                            f"Error: Invalid date/time format '{new_due_date}'. Use YYYY-MM-DD or YYYY-MM-DD HH:MM. No change made.")
+                            f"Error: Invalid date/time format '{new_due_date}'. "
+                            "Use YYYY-MM-DD or YYYY-MM-DD HH:MM. No change made."
+                        )
 
             if updated:
                 self._save_tasks()
