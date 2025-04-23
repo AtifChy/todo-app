@@ -47,11 +47,11 @@ A simple, terminal-based to-do application written in Python. Track your tasks, 
 Start the application:
 
 ```bash
-python todo.py
+todo
 ```
 
 At the `Todo>` prompt, type `help` to see available commands.
 
 ## Contributing
 
-Feel free to submit issues or pull requests. Please follow PEP 8 style guidelines and include tests for new features.
+Feel free to submit issues or pull requests. Please follow [PEP 8 style guidelines](https://peps.python.org/pep-0008/) and include tests for new features.
