@@ -134,15 +134,13 @@ class TodoApp:
                     t for t in filtered_tasks
                     if not t.completed and
                     t.due_date and
-                    get_datetime_from_iso(
-                        t.due_date).date() == today  # Compare dates
+                    get_datetime_from_iso(t.due_date).date() == today
                 ]
             elif key == "overdue":
                 filtered_tasks = [
                     t for t in filtered_tasks
                     if not t.completed and
                     t.due_date and
-                    # Compare full datetime
                     get_datetime_from_iso(t.due_date) < now
                 ]
             else:
